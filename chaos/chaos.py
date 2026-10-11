@@ -86,7 +86,9 @@ def create_docker_client() -> Any:
     return docker.from_env()
 
 
-def trigger(scenarios: dict[str, ModuleType]) -> None:
+def trigger(
+    scenarios: dict[str, ModuleType], requested_name: str | None = None
+) -> None:
     if STATE_FILE.exists():
         state = read_state()
         raise RuntimeError(
@@ -94,7 +96,14 @@ def trigger(scenarios: dict[str, ModuleType]) -> None:
             "revert it before triggering another."
         )
 
-    name = random.choice(list(scenarios))
+    if requested_name is not None and requested_name not in scenarios:
+        available = ", ".join(sorted(scenarios))
+        raise RuntimeError(
+            f"Unknown chaos scenario '{requested_name}'. Available scenarios: "
+            f"{available}."
+        )
+
+    name = requested_name or random.choice(list(scenarios))
     scenario = scenarios[name]
     client = create_docker_client()
     save_state(name, "injecting")
@@ -132,15 +141,24 @@ def hint(scenarios: dict[str, ModuleType]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("trigger", "revert", "hint"))
+    parser.add_argument(
+        "scenario",
+        nargs="?",
+        help="scenario name for trigger (defaults to a random scenario)",
+    )
     arguments = parser.parse_args(argv)
 
     try:
         scenarios = load_scenarios()
         if arguments.command == "trigger":
-            trigger(scenarios)
+            trigger(scenarios, arguments.scenario)
         elif arguments.command == "revert":
+            if arguments.scenario is not None:
+                parser.error("scenario can only be specified with 'trigger'")
             revert(scenarios)
         else:
+            if arguments.scenario is not None:
+                parser.error("scenario can only be specified with 'trigger'")
             hint(scenarios)
     except (OSError, RuntimeError, ImportError) as error:
         print(f"chaos: {error}", file=sys.stderr)

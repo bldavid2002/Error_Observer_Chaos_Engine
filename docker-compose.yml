@@ -58,6 +58,7 @@ services:
   worker:
     build: .
     command: ["python", "worker.py"]
+    mem_limit: 512m
     cap_add:
       - NET_ADMIN
     environment:

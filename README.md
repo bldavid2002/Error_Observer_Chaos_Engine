@@ -38,16 +38,41 @@ environment.
 
 ## Chaos scenarios
 
-The optional chaos controller can inject one random failure into this local
-Compose stack and revert the most recent injection:
+The optional chaos controller can inject one failure into this local Compose
+stack and revert the most recent injection. Omit the scenario name to choose
+randomly, or name one explicitly:
 
 ```powershell
 python -m venv .venv-chaos
 .\.venv-chaos\Scripts\python.exe -m pip install -r chaos/requirements.txt
 .\.venv-chaos\Scripts\python.exe chaos/chaos.py trigger
+.\.venv-chaos\Scripts\python.exe chaos/chaos.py trigger 04_disk_fill
 .\.venv-chaos\Scripts\python.exe chaos/chaos.py hint
 .\.venv-chaos\Scripts\python.exe chaos/chaos.py revert
 ```
+
+Available scenarios:
+
+| Scenario | Effect |
+| --- | --- |
+| `01_network_latency` | Adds 2 seconds of network latency to the worker. |
+| `02_db_auth_fail` | Changes the PostgreSQL password to break worker database access. |
+| `03_rogue_cpu_spike` | Starts a CPU-bound process in the worker. |
+| `04_disk_fill` | Writes up to 5,000 MiB to a temporary file in the worker. |
+| `05_memory_leak` | Starts an unbounded memory-allocation process in the worker. |
+| `06_poison_pill` | Publishes malformed messages continuously to RabbitMQ. |
+| `07_dns_failure` | Overrides the worker's `postgres` host entry to loopback. |
+| `08_network_packet_loss` | Drops 20% of packets on the worker's network interface. |
+
+Run `revert` after each scenario. The disk scenario can consume up to 5 GiB in
+Docker's storage until reverted; make sure the host has enough free space. The
+worker has a 512 MiB memory limit so the memory scenario cannot consume host
+memory without bound. Inspect container memory and restart behavior with
+`docker compose stats` / `docker compose ps`.
+
+The poison-pill publisher sends a continuous stream of invalid messages. The
+current worker rejects malformed messages without requeueing, so this drives a
+sustained error rate without creating an unbounded redelivery loop.
 
 Rebuild the worker image after the first-time setup so it includes `tc`:
 
@@ -55,8 +80,8 @@ Rebuild the worker image after the first-time setup so it includes `tc`:
 docker compose up --build -d
 ```
 
-The worker is granted the `NET_ADMIN` capability for the network-latency
-scenario. Scenarios interrupt service and are intended only for this local
-practice stack. Run `revert` before triggering another scenario. If you changed
-the PostgreSQL password, set `POSTGRES_PASSWORD` in the shell running the
-controller so `revert` restores the matching value.
+The worker is granted the `NET_ADMIN` capability for the latency and packet
+loss scenarios. These scenarios interrupt service and are intended only for
+this local practice stack. If you changed the PostgreSQL password, set
+`POSTGRES_PASSWORD` in the shell running the controller so `revert` restores
+the matching value.
