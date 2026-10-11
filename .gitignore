@@ -1,0 +1,3 @@
+.venv-chaos/
+chaos/.chaos_state.json
+chaos/.chaos_state.json.tmp
