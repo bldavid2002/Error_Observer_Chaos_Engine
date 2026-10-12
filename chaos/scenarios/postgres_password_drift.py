@@ -19,7 +19,10 @@ def _postgres(client: Any) -> Any:
 
 def _set_password(client: Any, password: str) -> None:
     sql_password = password.replace("'", "''")
-    sql = f"ALTER USER postgres WITH PASSWORD '{sql_password}';"
+    sql = (f"ALTER USER postgres WITH PASSWORD '{sql_password}'; " 
+           "SELECT pg_terminate_backend(pid) FROM pg_stat_activity " 
+           "WHERE datname = 'app' AND pid <> pg_backend_pid(); "
+           )
     result = _postgres(client).exec_run(
         ["psql", "-U", "postgres", "-d", "app", "-c", sql],
         user="postgres",

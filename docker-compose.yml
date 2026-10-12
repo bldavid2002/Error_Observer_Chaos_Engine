@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -22,8 +22,8 @@ services:
   rabbitmq:
     image: rabbitmq:4-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit loopback_users []"
     ports:
       - "127.0.0.1:5672:5672"
@@ -43,8 +43,8 @@ services:
     command: ["python", "generator.py"]
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       LOG_FILE: /var/log/app/generator.log
     depends_on:
       rabbitmq:
@@ -58,17 +58,16 @@ services:
   worker:
     build: .
     command: ["python", "worker.py"]
-    mem_limit: 512m
     cap_add:
       - NET_ADMIN
     environment:
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       POSTGRES_HOST: postgres
       POSTGRES_DB: app
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       METRICS_PORT: "8000"
       LOG_FILE: /var/log/app/worker.log
     depends_on:
@@ -83,6 +82,11 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
 
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -132,7 +136,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - grafana-data:/var/lib/grafana
     depends_on:
@@ -140,7 +144,7 @@ services:
       - loki
     networks:
       - app-network
-    restart: unless-stopped 
+    restart: unless-stopped
 
 networks:
   app-network:
